@@ -21,7 +21,8 @@ def aws_zones(self):
 class TestAwsTerraform(unittest.TestCase):
 
     def setUp(self):
-        logging.disable(logging.CRITICAL)
+        pass
+        # logging.disable(logging.CRITICAL)
 
     @mock.patch("__builtin__.open", mock_params({}))
     def test_terraform_configure_no_custom(self):

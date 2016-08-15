@@ -70,7 +70,8 @@ def aws_zones(self):
 class TestAwsTerraform(unittest.TestCase):
 
     def setUp(self):
-        logging.disable(logging.CRITICAL)
+        pass
+        # logging.disable(logging.CRITICAL)
 
     @mock.patch("__builtin__.open", mock_params({
         'digitalocean_token': 'digitalocean_token1',
