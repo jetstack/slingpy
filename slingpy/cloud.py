@@ -46,6 +46,10 @@ class Plugin(object):
             return True
         return False
 
+    def terraform_output(self, key):
+        tf = self._provider.terraform_output()
+        return tf[key]['value']
+
     def variables(self):
         output = {}
 
@@ -165,11 +169,41 @@ class AWSPlugin(Plugin):
             region_name=self.region(),
         )
 
+    @property
+    def ec2(self):
+        return self.session.resource('ec2')
+
+    @property
+    def iam(self):
+        return self.session.resource('iam')
+
+    @property
+    def client_autscaling(self):
+        return self.session.client('autoscaling')
+
+    @property
+    def client_ec2(self):
+        return self.session.client('ec2')
+
+    def autoscaling_instances(self, name):
+        result = self.client_autscaling.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[
+                name,
+            ]
+        )
+
+        instances = []
+
+        for instance in result['AutoScalingGroups'][0]['Instances']:
+            instances.append(self.ec2.Instance(instance['InstanceId']))
+
+        return instances
+
     def zones_available(self):
-        c = self.session.client('ec2')
+        zones = self.client_ec2.describe_availability_zones()
         return [
             zone['ZoneName']
-            for zone in c.describe_availability_zones()['AvailabilityZones']
+            for zone in zones['AvailabilityZones']
             if zone['State'] == 'available'
         ]
 
@@ -178,6 +212,84 @@ class AWSPlugin(Plugin):
 
         output['region'] = self.region()
         output['zones'] = self.zones()
+
+        return output
+
+    @property
+    def worker_instances(self):
+        return self.autoscaling_instances(
+            self.terraform_output('worker_asg')
+        )
+
+    @property
+    def bastion_instance(self):
+        return self.ec2.Instance(self.terraform_output('bastion_instance_id'))
+
+    @property
+    def master_instances(self):
+        return self.autoscaling_instances(
+            self.terraform_output('master_asg')
+        )
+
+    def inventory_for_instance(self, i):
+        inventory = {
+            'name': i.id,
+        }
+
+        if i.public_ip_address is not None:
+            inventory['publicIP'] = i.public_ip_address
+
+        if i.private_ip_address is not None:
+            inventory['privateIP'] = i.private_ip_address
+
+        return inventory
+
+    def inventory(self):
+        inventory = []
+        roles = ['master']
+        for instance in self.master_instances:
+            i = self.inventory_for_instance(instance)
+            i['roles'] = roles
+            inventory.append(i)
+
+        roles = ['worker']
+        for instance in self.worker_instances:
+            i = self.inventory_for_instance(instance)
+            i['roles'] = roles
+            inventory.append(i)
+
+        i = self.inventory_for_instance(self.bastion_instance)
+        i['roles'] = ['bastion']
+        inventory.append(i)
+
+        return inventory
+
+    def flocker_enabled(self):
+        return False
+
+    def output(self, output):
+        output['inventory'] = self.inventory()
+
+        # remove secrets aws
+        output['custom']['aws_secret_key'] = '-removed-'
+
+        elb_dns = self.terraform_output('master_elb_dns_name')
+        bastion_eip = self.terraform_output('bastion_instance_eip')
+
+        k8soutput = output['general']['cluster']['kubernetes']
+
+        k8soutput['masterApiUrl'] = "https://%s" % elb_dns
+        k8soutput['masterApiUrlExternal'] = "https://%s" % bastion_eip
+        k8soutput['masterSan'] = [
+            elb_dns,
+            bastion_eip
+        ]
+
+        k8soutput['cloudProvider'] = 'aws'
+
+        if self.flocker_enabled():
+            for key in ['flocker_access_key', 'flocker_secret_key']:
+                output['custom'][key] = self.terraform_output(key)
 
         return output
 
