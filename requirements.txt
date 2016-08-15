@@ -1,3 +1,4 @@
 nose
 PyYAML
 boto3
+mock
