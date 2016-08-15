@@ -242,7 +242,6 @@ class DigitaloceanPlugin(Plugin):
         for mtype, machine in self._provider\
                 .parameters['general']['cluster']['machines'].iteritems():
             for data in self.machines_list(tf_out, mtype):
-                print data
                 inventory.append({
                     'name': data['hostname'],
                     'roles': machine['roles'],
