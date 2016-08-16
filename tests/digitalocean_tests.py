@@ -103,5 +103,9 @@ class TestAwsTerraform(unittest.TestCase):
         k8soutput = output['general']['cluster']['kubernetes']
         self.assertEqual(len(output['inventory']), 3)
         self.assertEqual(k8soutput['masterApiUrl'], 'https://139.59.200.249')
+        self.assertEqual(
+            k8soutput['masterApiUrlExternal'],
+            'https://139.59.200.249'
+        )
         self.assertTrue('139.59.200.249' in k8soutput['masterSan'])
         self.assertTrue('178.62.44.51' in k8soutput['masterSan'])

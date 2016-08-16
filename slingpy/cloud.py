@@ -371,6 +371,7 @@ class DigitaloceanPlugin(Plugin):
         master_ip = self.terraform_output('master_floating_ip')
 
         k8soutput['masterApiUrl'] = "https://%s" % master_ip
+        k8soutput['masterApiUrlExternal'] = "https://%s" % master_ip
 
         k8soutput['masterSan'] = [
             master_ip,
