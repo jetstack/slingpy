@@ -334,14 +334,14 @@ class DigitaloceanPlugin(Plugin):
         output['region'] = self.region()
         return output
 
-    def machines_list(self, tf_out, mtype):
+    def machines_list(self, mtype):
         for i in itertools.count():
             output = {}
             for name in ['hostnames', 'private_ips', 'public_ips']:
                 try:
-                    output[name[:-1]] = tf_out[
+                    output[name[:-1]] = self.terraform_output(
                         '%s_%s' % (mtype, name)
-                    ]['value'].split(',')[i]
+                    ).split(',')[i]
                 except IndexError:
                     break
             else:
@@ -349,11 +349,11 @@ class DigitaloceanPlugin(Plugin):
                 continue
             break
 
-    def inventory(self, tf_out):
+    def inventory(self):
         inventory = []
         for mtype, machine in self._provider\
                 .parameters['general']['cluster']['machines'].iteritems():
-            for data in self.machines_list(tf_out, mtype):
+            for data in self.machines_list(mtype):
                 inventory.append({
                     'name': data['hostname'],
                     'roles': machine['roles'],
@@ -364,6 +364,16 @@ class DigitaloceanPlugin(Plugin):
         return inventory
 
     def output(self, output):
-        tf_out = self._provider.terraform_output()
-        output['inventory'] = self.inventory(tf_out)
+        output['inventory'] = self.inventory()
+
+        k8soutput = output['general']['cluster']['kubernetes']
+
+        master_ip = self.terraform_output('master_floating_ip')
+
+        k8soutput['masterApiUrl'] = "https://%s" % master_ip
+
+        k8soutput['masterSan'] = [
+            master_ip,
+        ] + self.terraform_output('master_public_ips').split(',')
+
         return output
