@@ -3,6 +3,7 @@ import mock
 import generic
 import yaml
 import logging
+import os
 from slingpy import TerraformInfraProvider
 
 
@@ -21,8 +22,8 @@ def aws_zones(self):
 class TestAwsTerraform(unittest.TestCase):
 
     def setUp(self):
-        pass
-        # logging.disable(logging.CRITICAL)
+        if os.environ.get('DEBUG') is None:
+            logging.disable(logging.CRITICAL)
 
     @mock.patch("__builtin__.open", mock_params({}))
     def test_terraform_configure_no_custom(self):
