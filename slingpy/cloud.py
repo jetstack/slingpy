@@ -212,6 +212,8 @@ class AWSPlugin(Plugin):
 
         output['region'] = self.region()
         output['zones'] = self.zones()
+        if self.flocker_enabled():
+            output['flocker_enabled'] = 1
 
         return output
 
@@ -265,7 +267,14 @@ class AWSPlugin(Plugin):
         return inventory
 
     def flocker_enabled(self):
-        return False
+        try:
+            val = self._provider.custom_param('flocker_enabled')
+            if val.lower() == 'true' or val == '1':
+                return True
+            else:
+                return False
+        except KeyError:
+            return False
 
     def output(self, output):
         output['inventory'] = self.inventory()
